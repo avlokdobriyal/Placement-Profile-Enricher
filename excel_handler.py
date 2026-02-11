@@ -172,6 +172,17 @@ def write_enriched(
         df_enriched.to_excel(writer, index=False, sheet_name="Sheet1")
         df_logs.to_excel(writer, index=False, sheet_name="Enrich_Logs")
 
+        # Auto-fit column widths so all headers are fully visible
+        for sheet_name in writer.sheets:
+            ws = writer.sheets[sheet_name]
+            for col_cells in ws.columns:
+                max_len = 0
+                col_letter = get_column_letter(col_cells[0].column)
+                for cell in col_cells:
+                    val = str(cell.value) if cell.value is not None else ""
+                    max_len = max(max_len, len(val))
+                ws.column_dimensions[col_letter].width = min(max_len + 3, 50)
+
     return buf.getvalue()
 
 

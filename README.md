@@ -4,16 +4,18 @@ A focused Flask utility that turns a messy spreadsheet of profile links (LeetCod
 
 ## Features
 
-- **Single endpoint** – `POST /enrich` accepts an Excel file and returns a ZIP with enriched results + summary
+- **Built-in Web Frontend** – clean drag-and-drop upload page at `http://localhost:5000` — no Postman or curl needed
+- **Single API endpoint** – `POST /enrich` accepts an Excel file and returns a ZIP with enriched results + summary
 - **Four platform scrapers** – LeetCode global contest rank, Codeforces current rating, LinkedIn profile photo, GitHub last-12-month contributions & public repos
 - **Rate-limited & resilient** – token-bucket scheduler per platform with configurable delays, 2 retries with exponential back-off, failures isolated per row/platform
 - **Efficient Excel handling** – Pandas for small/medium files; openpyxl streaming for large files (>5 MB or >10k cells) to keep memory under 300 MB
-- **LinkedIn photo saving** – downloads profile photos to `photos/{rollno}.jpg` via Pillow for ID card workflows
+- **Auto-fitted columns** – enriched Excel output auto-sizes all column widths so headers like `GH_Public_Repos` are always fully visible
+- **LinkedIn photo saving** – downloads profile photos to `photos/{rollno}.jpg` via Pillow for ID card workflows; photos are bundled inside the output ZIP
 - **Structured logging** – every scrape attempt, retry, and error logged (console + `Enrich_Logs` Excel sheet)
 
 ## Quick Start
 
-### 1. Setup virtual environment
+### 1. Set up virtual environment
 
 ```bash
 python -m venv venv
@@ -35,7 +37,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env as needed
+# Edit .env as needed (e.g. set SELENIUM_ENABLED=true for LinkedIn)
 ```
 
 ### 4. Run the server
@@ -44,7 +46,28 @@ cp .env.example .env
 python app.py
 ```
 
-The API will be available at `http://localhost:5000`.
+The server starts at `http://localhost:5000`.
+
+### 5. Open the frontend
+
+Navigate to **http://localhost:5000** in your browser. You'll see:
+
+1. A **column format guide** showing the required Excel layout
+2. A **drag-and-drop upload area** — click or drop your `.xlsx` file
+3. An **"Enrich Profiles"** button that kicks off processing
+4. A **loading spinner** while the backend scrapes all platforms
+5. **Automatic download** of `enriched_results.zip` when done
+
+> **No external tools required.** The frontend is served directly by Flask — just open the URL and upload your file.
+
+### Alternative: Using curl
+
+```bash
+curl -X POST \
+  -F "excel=@candidates.xlsx" \
+  http://localhost:5000/enrich \
+  --output enriched_results.zip
+```
 
 ## Environment Variables
 
@@ -61,30 +84,6 @@ The API will be available at `http://localhost:5000`.
 | `MAX_RETRIES`                | `2`                                               | Retries per platform fetch                      |
 | `BACKOFF_BASE`               | `2`                                               | Exponential back-off base (seconds)             |
 | `PHOTOS_DIR`                 | `./photos`                                        | Directory for saved LinkedIn profile photos     |
-
-## Usage
-
-### Example curl command
-
-```bash
-curl -X POST \
-  -F "excel=@candidates.xlsx" \
-  http://localhost:5000/enrich \
-  --output enriched_results.zip
-```
-
-### Example HTML form
-
-```html
-<form
-  action="http://localhost:5000/enrich"
-  method="post"
-  enctype="multipart/form-data"
->
-  <input type="file" name="excel" accept=".xlsx" />
-  <button type="submit">Enrich</button>
-</form>
-```
 
 ## Input Excel Format
 
@@ -107,13 +106,18 @@ The response is a ZIP file (`enriched_results.zip`) containing:
 ### `enriched.xlsx`
 
 - All original columns preserved
-- Five new columns appended:
+- Five new columns appended (auto-fitted for readability):
   - `LC_Global_Contest_Rank` – LeetCode global contest rank (or `N/A`)
   - `CF_Rating` – Codeforces current rating (or `N/A`)
   - `Photos_Path` – relative path to saved photo, e.g. `photos/2021001.jpg` (or `N/A`)
   - `GH_Commits_12mo` – GitHub contributions in the last 12 months (or `N/A`)
   - `GH_Public_Repos` – total public GitHub repositories (or `N/A`)
 - Additional sheet `Enrich_Logs` with columns: `timestamp`, `row_id`, `platform`, `url`, `status`, `message`
+
+### `photos/` folder
+
+- Contains downloaded LinkedIn profile photos as `{rollno}.jpg`
+- Only present when photos were successfully retrieved
 
 ### `summary.json`
 
@@ -123,36 +127,25 @@ The response is a ZIP file (`enriched_results.zip`) containing:
   "total_duration_ms": 62000,
   "overall_success_rate": 0.87,
   "platforms": {
-    "leetcode": {
-      "success_rate": 0.96,
-      "error_count": 2,
-      "sample_errors": ["Row 12: User has not participated in any contest"]
-    },
-    "codeforces": {
-      "success_rate": 0.98,
-      "error_count": 1,
-      "sample_errors": []
-    },
-    "linkedin": {
-      "success_rate": 0.6,
-      "error_count": 20,
-      "sample_errors": ["Row 3: LinkedIn blocked the request"]
-    },
-    "github": {
-      "success_rate": 0.94,
-      "error_count": 3,
-      "sample_errors": ["Row 7: Could not parse contributions from profile"]
-    }
+    "leetcode": { "success_rate": 0.96, "error_count": 2 },
+    "codeforces": { "success_rate": 0.98, "error_count": 1 },
+    "linkedin": { "success_rate": 0.6, "error_count": 20 },
+    "github": { "success_rate": 0.94, "error_count": 3 }
   }
 }
 ```
 
 ## Performance Notes
 
-- For ~150 rows: expect ~10 minutes total (4 platforms × 150 rows × ~1 s average delay per request)
+| Rows | Estimated Time | Notes                                          |
+| ---- | -------------- | ---------------------------------------------- |
+| 10   | ~1–2 minutes   | ~3 min with Selenium enabled for LinkedIn      |
+| 50   | ~5–6 minutes   | Sweet spot for quick batches                   |
+| 150  | ~10 minutes    | Rate limiter ensures no platform gets hammered |
+
 - Streaming mode activates automatically for files >5 MB or >10k cells to keep memory under 300 MB
-- LinkedIn scraping has the lowest success rate due to aggressive bot detection (HTTP 999)
-- GitHub "contributions" includes commits + PRs + issues + reviews (pure commit-only count requires an auth token which this tool intentionally avoids per the no-credentials requirement)
+- LinkedIn scraping has the lowest success rate due to aggressive bot detection — enable Selenium (`SELENIUM_ENABLED=true`) for better results
+- GitHub contributions are fetched from the contributions calendar endpoint (no auth token required)
 
 ## Running Tests
 
@@ -161,7 +154,7 @@ pip install pytest
 python -m pytest tests/ -v
 ```
 
-Three test files cover the PRD's required test scenarios:
+15 tests across three files cover the key scenarios:
 
 - `test_column_mapping.py` – case-insensitive column detection, RollNo fallback, extra columns preserved
 - `test_happy_path.py` – end-to-end success: all 4 scrapers return valid data, enriched output verified
@@ -171,8 +164,8 @@ Three test files cover the PRD's required test scenarios:
 
 ```
 placement-enricher/
-├── app.py                  # Flask entry point + POST /enrich
-├── config.py               # All configurable constants (env vars)
+├── app.py                   # Flask entry point – GET / (frontend) + POST /enrich (API)
+├── config.py                # All configurable constants (env vars)
 ├── rate_limiter.py          # Token-bucket rate limiter (per platform)
 ├── scheduler.py             # Round-robin row processor
 ├── scrapers/
@@ -181,15 +174,21 @@ placement-enricher/
 │   ├── codeforces.py        # Codeforces HTML + API scraper
 │   ├── linkedin.py          # LinkedIn photo scraper (BS4 + optional Selenium)
 │   └── github.py            # GitHub contributions + repos scraper
-├── excel_handler.py         # Read/write Excel (Pandas + openpyxl)
+├── excel_handler.py         # Read/write Excel (Pandas + openpyxl) with auto-fit columns
 ├── photo_handler.py         # Download & save images via Pillow
 ├── utils.py                 # URL validation, username extraction, retry wrapper
+├── templates/
+│   └── index.html           # Web frontend – drag-and-drop upload page
 ├── tests/
 │   ├── test_column_mapping.py
 │   ├── test_happy_path.py
 │   └── test_failure_row.py
-├── photos/                  # Saved LinkedIn profile photos
+├── photos/                  # Saved LinkedIn profile photos (included in output ZIP)
 ├── requirements.txt
 ├── .env.example
 └── README.md
 ```
+
+## License
+
+This project was built as a placement utility. Use it responsibly and respect each platform's terms of service.

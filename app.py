@@ -15,7 +15,7 @@ import time
 import zipfile
 from io import BytesIO
 
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from config import (
     MAX_FILE_SIZE,
@@ -59,6 +59,12 @@ ALLOWED_MIMES = {
 }
 
 ALLOWED_EXTENSIONS = {".xlsx"}
+
+
+@app.route("/")
+def index():
+    """Serve the frontend upload page."""
+    return render_template("index.html")
 
 
 @app.route("/enrich", methods=["POST"])
@@ -146,6 +152,14 @@ def enrich():
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("enriched.xlsx", excel_bytes)
         zf.writestr("summary.json", summary_bytes)
+
+        # Include downloaded LinkedIn photos in photos/ folder
+        photos_dir = os.path.join(os.path.dirname(__file__), "photos")
+        if os.path.isdir(photos_dir):
+            for fname in os.listdir(photos_dir):
+                fpath = os.path.join(photos_dir, fname)
+                if os.path.isfile(fpath) and fname.lower().endswith(".jpg"):
+                    zf.write(fpath, f"photos/{fname}")
 
     zip_bytes = zip_buf.getvalue()
     logger.info("ZIP response: %d bytes", len(zip_bytes))

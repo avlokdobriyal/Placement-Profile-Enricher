@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Placement Profile Enricher</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background: #f5f7fa;
+        color: #333;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: #1a1a2e;
+      }
+
+      .subtitle {
+        color: #666;
+        font-size: 0.95rem;
+        margin-bottom: 32px;
+        line-height: 1.5;
+      }
+
+      /* ---- Card sections ---- */
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      .card h2 {
+        font-size: 1.05rem;
+        font-weight: 600;
+        margin-bottom: 14px;
+        color: #1a1a2e;
+      }
+
+      /* ---- Column format table ---- */
+      .format-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+
+      .format-table th {
+        background: #f0f2f5;
+        text-align: left;
+        padding: 8px 12px;
+        font-weight: 600;
+        color: #555;
+        border-bottom: 2px solid #e0e0e0;
+      }
+
+      .format-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
+      }
+
+      .format-table code {
+        background: #f0f2f5;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.82rem;
+        color: #d63384;
+      }
+
+      .tag-required {
+        display: inline-block;
+        background: #e8f5e9;
+        color: #2e7d32;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 3px;
+        text-transform: uppercase;
+      }
+
+      .tag-optional {
+        display: inline-block;
+        background: #fff3e0;
+        color: #e65100;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 3px;
+        text-transform: uppercase;
+      }
+
+      .note {
+        font-size: 0.8rem;
+        color: #888;
+        margin-top: 10px;
+        line-height: 1.4;
+      }
+
+      /* ---- Upload area ---- */
+      .upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 10px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+
+      .upload-area:hover,
+      .upload-area.dragover {
+        border-color: #4a6cf7;
+        background: #f8f9ff;
+      }
+
+      .upload-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+      }
+
+      .upload-text {
+        font-size: 0.95rem;
+        color: #555;
+      }
+
+      .upload-text strong {
+        color: #4a6cf7;
+      }
+
+      .upload-hint {
+        font-size: 0.78rem;
+        color: #aaa;
+        margin-top: 6px;
+      }
+
+      .file-name {
+        margin-top: 12px;
+        font-size: 0.88rem;
+        color: #333;
+        font-weight: 500;
+        display: none;
+      }
+
+      .file-name .remove-btn {
+        color: #e53935;
+        cursor: pointer;
+        margin-left: 8px;
+        font-weight: 400;
+        font-size: 0.8rem;
+      }
+
+      #fileInput {
+        display: none;
+      }
+
+      /* ---- Button ---- */
+      .btn {
+        display: block;
+        width: 100%;
+        padding: 14px;
+        margin-top: 20px;
+        background: #4a6cf7;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .btn:hover {
+        background: #3b5de7;
+      }
+      .btn:disabled {
+        background: #b0bec5;
+        cursor: not-allowed;
+      }
+
+      /* ---- Status messages ---- */
+      .status {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        display: none;
+        line-height: 1.5;
+      }
+
+      .status.loading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #e3f2fd;
+        color: #1565c0;
+      }
+
+      .status.success {
+        display: block;
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .status.error {
+        display: block;
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border: 3px solid #90caf9;
+        border-top-color: #1565c0;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---- Output info ---- */
+      .output-info {
+        font-size: 0.82rem;
+        color: #666;
+        line-height: 1.6;
+      }
+
+      .output-info code {
+        background: #f0f2f5;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 0.8rem;
+      }
+
+      /* ---- Footer ---- */
+      .footer {
+        text-align: center;
+        color: #bbb;
+        font-size: 0.75rem;
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Placement Profile Enricher</h1>
+      <p class="subtitle">
+        Upload an Excel file with candidate profile links. Get back an enriched
+        sheet with LeetCode ranks, Codeforces ratings, LinkedIn photos, and
+        GitHub activity.
+      </p>
+
+      <!-- Column format guide -->
+      <div class="card">
+        <h2>Required Excel Format</h2>
+        <table class="format-table">
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Status</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>RollNo</code></td>
+              <td><span class="tag-required">Required</span></td>
+              <td>21CS001</td>
+            </tr>
+            <tr>
+              <td><code>LeetCodeURL</code></td>
+              <td><span class="tag-required">Required</span></td>
+              <td>https://leetcode.com/u/username</td>
+            </tr>
+            <tr>
+              <td><code>CodeforcesURL</code></td>
+              <td><span class="tag-required">Required</span></td>
+              <td>https://codeforces.com/profile/handle</td>
+            </tr>
+            <tr>
+              <td><code>LinkedInURL</code></td>
+              <td><span class="tag-required">Required</span></td>
+              <td>https://www.linkedin.com/in/username</td>
+            </tr>
+            <tr>
+              <td><code>GitHubURL</code></td>
+              <td><span class="tag-required">Required</span></td>
+              <td>https://github.com/username</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          Column names are case-insensitive. If RollNo is missing, an ID is
+          derived from the GitHub or LinkedIn username. Extra columns in your
+          file will be preserved.
+        </p>
+      </div>
+
+      <!-- Upload section -->
+      <div class="card">
+        <h2>Upload & Enrich</h2>
+
+        <div class="upload-area" id="dropZone">
+          <div class="upload-icon">📁</div>
+          <div class="upload-text">
+            <strong>Click to browse</strong> or drag & drop your .xlsx file
+          </div>
+          <div class="upload-hint">Maximum file size: 10 MB</div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".xlsx" />
+
+        <div class="file-name" id="fileName">
+          <span id="fileNameText"></span>
+          <span class="remove-btn" id="removeFile">✕ remove</span>
+        </div>
+
+        <button class="btn" id="enrichBtn" disabled>Enrich Profiles</button>
+
+        <div class="status" id="status"></div>
+      </div>
+
+      <!-- Output description -->
+      <div class="card">
+        <h2>What You'll Get</h2>
+        <div class="output-info">
+          A <strong>ZIP file</strong> containing:
+          <ul style="margin: 8px 0 0 20px">
+            <li>
+              <code>enriched.xlsx</code> — your original sheet + 5 new columns:
+              <code>LC_Global_Contest_Rank</code>, <code>CF_Rating</code>,
+              <code>Photos_Path</code>, <code>GH_Commits_12mo</code>,
+              <code>GH_Public_Repos</code>
+            </li>
+            <li style="margin-top: 4px">
+              <code>summary.json</code> — per-platform success rates, error
+              counts, and timing
+            </li>
+            <li style="margin-top: 4px">
+              An <code>Enrich_Logs</code> sheet inside the Excel with detailed
+              per-row logs
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer">
+        Placement Profile Enricher &middot; Processes ~150 rows in ~10 minutes
+      </div>
+    </div>
+
+    <script>
+      const dropZone = document.getElementById("dropZone");
+      const fileInput = document.getElementById("fileInput");
+      const fileNameDiv = document.getElementById("fileName");
+      const fileNameText = document.getElementById("fileNameText");
+      const removeFile = document.getElementById("removeFile");
+      const enrichBtn = document.getElementById("enrichBtn");
+      const statusDiv = document.getElementById("status");
+
+      let selectedFile = null;
+
+      // Click to browse
+      dropZone.addEventListener("click", () => fileInput.click());
+
+      // File selected via input
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) setFile(e.target.files[0]);
+      });
+
+      // Drag & drop
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("dragover");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        if (e.dataTransfer.files.length > 0) setFile(e.dataTransfer.files[0]);
+      });
+
+      // Remove file
+      removeFile.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearFile();
+      });
+
+      function setFile(file) {
+        // Validate extension
+        if (!file.name.toLowerCase().endsWith(".xlsx")) {
+          showStatus("error", "Only .xlsx files are accepted.");
+          return;
+        }
+        // Validate size (10 MB)
+        if (file.size > 10 * 1024 * 1024) {
+          showStatus("error", "File exceeds the 10 MB size limit.");
+          return;
+        }
+        selectedFile = file;
+        fileNameText.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileNameDiv.style.display = "block";
+        enrichBtn.disabled = false;
+        hideStatus();
+      }
+
+      function clearFile() {
+        selectedFile = null;
+        fileInput.value = "";
+        fileNameDiv.style.display = "none";
+        enrichBtn.disabled = true;
+        hideStatus();
+      }
+
+      function showStatus(type, message) {
+        statusDiv.className = "status " + type;
+        if (type === "loading") {
+          statusDiv.innerHTML = `<div class="spinner"></div><span>${message}</span>`;
+        } else {
+          statusDiv.textContent = message;
+        }
+        statusDiv.style.display = type === "loading" ? "flex" : "block";
+      }
+
+      function hideStatus() {
+        statusDiv.style.display = "none";
+      }
+
+      // Submit
+      enrichBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        enrichBtn.disabled = true;
+        showStatus(
+          "loading",
+          "Processing... This may take a few minutes for large files.",
+        );
+
+        const formData = new FormData();
+        formData.append("excel", selectedFile);
+
+        try {
+          const response = await fetch("/enrich", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            let errMsg = "Something went wrong.";
+            try {
+              const errData = await response.json();
+              errMsg = errData.error || errMsg;
+            } catch (_) {}
+            showStatus("error", errMsg);
+            enrichBtn.disabled = false;
+            return;
+          }
+
+          // Download the ZIP
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "enriched_results.zip";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          showStatus(
+            "success",
+            "✓ Done! Your enriched_results.zip has been downloaded.",
+          );
+          enrichBtn.disabled = false;
+        } catch (err) {
+          showStatus("error", "Network error: " + err.message);
+          enrichBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
