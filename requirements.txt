@@ -1,0 +1,9 @@
+flask>=3.0
+beautifulsoup4>=4.12
+requests>=2.31
+pandas>=2.1
+openpyxl>=3.1
+xlsxwriter>=3.1
+Pillow>=10.0
+python-dotenv>=1.0
+selenium>=4.15  # set SELENIUM_ENABLED=true to activate

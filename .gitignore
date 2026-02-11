@@ -1,0 +1,30 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment variables (contains local config)
+.env
+
+# Downloaded LinkedIn photos (generated at runtime)
+photos/*.jpg
+
+# Test artifacts
+test_input.xlsx
+result.zip
+debug_gh.py
+test_api.py
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# pytest cache
+.pytest_cache/
